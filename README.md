@@ -9,7 +9,6 @@ The implementation of ConvLSTM by Keras.
 * pillow
 * numpy
 * opencv
-* matplotlib
 
 ## How to use
 
