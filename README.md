@@ -1,6 +1,6 @@
 # cloud_nict
 
-The implementation of ConvLSTM by Keras.
+A implementation of ConvLSTM by Keras.
 
 ## Requirements
 
