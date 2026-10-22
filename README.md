@@ -4,7 +4,7 @@
 
 **Predicting the next step of satellite cloud imagery with ConvLSTM**
 
-<sub>**English** · [中文](README.zh-CN.md)</sub>
+<sub>**English** · [日本語](README.ja.md) · [中文](README.zh-CN.md)</sub>
 
 <sub>Himawari-8 infrared imagery · Keras / TensorFlow · 2017–2019 data</sub>
 
