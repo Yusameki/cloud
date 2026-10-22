@@ -187,7 +187,6 @@ model.fit(..., batch_size=8, epochs=100)
 
 - **`libs/__pycache__/` 被提交进来了**（三个 `.pyc`），下次清理一下
 - **没有 `requirements.txt`**
-- 仓库名 `cloud`，README 原标题写的是 `cloud_nict`，不太一致
 - `datasets.py` 里 `resized_data` 在第一次循环时是未定义变量，
   如果**第一帧就读失败**会直接 `UnboundLocalError`（实际跑的时候没遇到，因为数据齐全）
 - 输入序列是「一天 48 帧 → 预测同样 48 帧」，本质是自回归而非真正的未来预测，
@@ -197,6 +196,6 @@ model.fit(..., batch_size=8, epochs=100)
 
 <div align="center">
 
-<sub>NICT 时期的一点小实验，云图数据是 Himawari-8 的 (´-ω-`)</sub>
+<sub>当年的一点小实验，云图数据是 Himawari-8 的 (´-ω-`)</sub>
 
 </div>
