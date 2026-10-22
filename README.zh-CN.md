@@ -4,7 +4,7 @@
 
 **用 ConvLSTM 预测卫星云图的下一步**
 
-<sub>[English](README.md) · **中文**</sub>
+<sub>[English](README.md) · [日本語](README.ja.md) · **中文**</sub>
 
 <sub>Himawari-8 红外云图 · Keras / TensorFlow · 2017–2019 的数据</sub>
 
