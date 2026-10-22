@@ -2,87 +2,89 @@
 
 # ☁️ cloud
 
-**用 ConvLSTM 预测卫星云图的下一步**
+**Predicting the next step of satellite cloud imagery with ConvLSTM**
 
-<sub>Himawari-8 红外云图 · Keras / TensorFlow · 2017–2019 的数据</sub>
+<sub>**English** · [中文](README.zh-CN.md)</sub>
+
+<sub>Himawari-8 infrared imagery · Keras / TensorFlow · 2017–2019 data</sub>
 
 </div>
 
 ---
 
-## 这是什么
+## What this is
 
-拿 **Himawari-8** 的一整天空红外云图（每 30 分钟一张，一天 48 张），
-让 ConvLSTM 学会「看过去 12 小时，推未来 12 小时」。
+Take a full day of **Himawari-8** infrared cloud imagery (one frame every 30 minutes, 48 frames a day),
+and let a ConvLSTM learn to "look at the past 12 hours, predict the next 12".
 
-模型结构很朴素：
+The model is quite plain:
 
 ```
-输入 (48, 74, 99, 1)          ← 一天 48 帧，resize 后 74×99
+input (48, 74, 99, 1)          ← 48 frames a day, 74×99 after resize
    ↓
-ConvLSTM2D (20 filters)       ← Encoder，return_sequences=False，只留最后一帧状态
+ConvLSTM2D (20 filters)        ← Encoder, return_sequences=False, keeps only the last frame's state
    ↓
-Lambda: repeat_last_status    ← 把最后那帧状态复制 48 份，当作 Decoder 的输入序列
+Lambda: repeat_last_status     ← copies that last state 48 times as the Decoder's input sequence
    ↓
-ConvLSTM2D (20 filters)       ← Decoder，return_sequences=True
+ConvLSTM2D (20 filters)        ← Decoder, return_sequences=True
    ↓
-TimeDistributed Conv2D(1)     ← 逐帧压成单通道，sigmoid 归一化到 [0,1]
+TimeDistributed Conv2D(1)      ← squashes each frame to one channel, sigmoid to [0,1]
    ↓
-输出 (48, 74, 99, 1)
+output (48, 74, 99, 1)
 ```
 
-> ( ¯꒳¯ ) Encoder 只吃最后一帧的隐状态，Decoder 再把它「回放」48 次。
-> 说白了就是：**记住此刻，然后凭记忆把一天画出来**。
+> ( ¯꒳¯ ) The Encoder only takes the final frame's hidden state; the Decoder "replays" it 48 times.
+> In plain words: **remember this moment, then draw a whole day from memory**.
 
 ---
 
-## 目录
+## Contents
 
-- [文件说明](#文件说明)
-- [数据](#数据)
-- [怎么跑](#怎么跑)
-- [模型细节](#模型细节)
-- [已知问题](#已知问题)
+- [Files](#files)
+- [Data](#data)
+- [How to run](#how-to-run)
+- [Model details](#model-details)
+- [Known issues](#known-issues)
 
 ---
 
-## 文件说明
+## Files
 
-| 文件 | 作用 |
+| File | Purpose |
 | --- | --- |
-| `prepare.py` | 把 tif 原始云图切成 `train_sat.npy` / `test_sat.npy` |
-| `train.py` | 切训练/验证集，训练模型，存 checkpoint |
-| `libs/datasets.py` | 读日期表、读 tif、resize、打包成 npy |
-| `libs/model.py` | 模型定义（Encoder → repeat → Decoder） |
-| `libs/inference_terms.csv` | 测试集用的日期清单 |
-| `models/my_model.h5` | 训练好的权重（`save_weights_only=True`） |
+| `prepare.py` | Slices the raw tif imagery into `train_sat.npy` / `test_sat.npy` |
+| `train.py` | Splits train/val, trains the model, saves checkpoints |
+| `libs/datasets.py` | Reads the date table, reads tifs, resizes, packs into npy |
+| `libs/model.py` | Model definition (Encoder → repeat → Decoder) |
+| `libs/inference_terms.csv` | Date list used for the test set |
+| `models/my_model.h5` | Trained weights (`save_weights_only=True`) |
 
 ---
 
-## 数据
+## Data
 
-原始数据是 Himawari-8 的二级产品，文件名长这样：
+The raw data is a Himawari-8 level-2 product; filenames look like this:
 
 ```
 NC_H08_{year}{month}{day}_{hour}{minute}_r14_FLDK.02701_02601_tbb_14_4326.tif
 ```
 
-- `r14` = 红外通道 14（约 11.2 μm，亮温）
-- `4326` = 已重投影到 WGS84 经纬度网格
-- 原始尺寸 **994 × 745**
+- `r14` = infrared channel 14 (about 11.2 μm, brightness temperature)
+- `4326` = already reprojected onto a WGS84 lat/lon grid
+- Original size **994 × 745**
 
-放成这个结构：
+Lay it out like this:
 
 ```
 datasets/
 ├── train/
 │   ├── 2017/
 │   ├── 2018/
-│   └── 2019/     ← 注意：2019 年算 test
+│   └── 2019/     ← note: 2019 counts as test
 └── test/
 ```
 
-`datasets.py` 里是硬编码的判断：
+The check in `datasets.py` is hard-coded:
 
 ```python
 if year == 2019:
@@ -91,8 +93,8 @@ else:
     phase = 'train'
 ```
 
-**训练集**：从 `2017-01-01` 起连续 672 天。
-**测试集**：读 `libs/inference_terms.csv` 里的日期（`test_date_1` 列）。
+**Training set**: 672 consecutive days starting `2017-01-01`.
+**Test set**: dates read from `libs/inference_terms.csv` (the `test_date_1` column).
 
 ```csv
 test_date_1,test_date_2
@@ -102,13 +104,13 @@ test_date_1,test_date_2
 ...
 ```
 
-每 7 天取一个测试日，`test_date_2` 是当天中午，大概是留着做半天推理的。
+One test day every 7 days; `test_date_2` is noon of that day, probably kept for half-day inference.
 
 ---
 
-## 怎么跑
+## How to run
 
-### 依赖
+### Dependencies
 
 ```
 python 3.x
@@ -119,36 +121,36 @@ pandas
 pillow
 ```
 
-> 原仓库没有 `requirements.txt`，上面这份是从 import 反推的。
-> TF 2.3 现在（2026 年）已经很旧了，新版 TF 应该也能跑，但 `ConvLSTM2D` 的
-> `recurrent_activation` 行为有过变化，注意对一下。
+> The repo has no `requirements.txt`; the list above was reverse-engineered from the imports.
+> TF 2.3 is very old by now (2026) — newer TF should work too, but `ConvLSTM2D`'s
+> `recurrent_activation` behaviour has changed before, so double-check it.
 
-### 两步
+### Two steps
 
 ```bash
-# 1. 先把 tif 打包成 npy（很慢，会吃内存）
+# 1. pack the tifs into npy first (slow, memory-hungry)
 python prepare.py
 
-# 2. 训练
+# 2. train
 python train.py
 ```
 
-`prepare.py` 里 resize 传的是 `10`：
+`prepare.py` passes `10` as the resize factor:
 
 ```python
 make_sat_dataset(resize=10, phase='train')
 make_sat_dataset(resize=10, phase='test')
 ```
 
-于是 `994/10 ≈ 99`、`745/10 ≈ 74` —— 这就是模型里那个 `(48, 74, 99, 1)` 的来历。
-想改分辨率就改这个 `resize`，但**模型里的 `input_shape` 和 `repeat_last_status`
-里的 74/99 也得一起改**，不然形状对不上。
+Hence `994/10 ≈ 99` and `745/10 ≈ 74` — that's where the `(48, 74, 99, 1)` in the model comes from.
+To change resolution, change this `resize`, but **the model's `input_shape` and the 74/99 inside
+`repeat_last_status` have to change with it**, or the shapes won't line up.
 
 ---
 
-## 模型细节
+## Model details
 
-`libs/model.py` 里那个 Lambda 是整套代码里最关键的一块：
+That Lambda in `libs/model.py` is the most important piece in the whole codebase:
 
 ```python
 def repeat_last_status(x):
@@ -159,15 +161,15 @@ def repeat_last_status(x):
     return x
 ```
 
-Encoder 输出是 `(batch, 74, 99, 20)`（`return_sequences=False`，时间维被吞了），
-这里手动 reshape 补回一个长度 1 的时间维，再复制 47 次凑成 48 帧，
-Decoder 才能按序列处理。
+The Encoder output is `(batch, 74, 99, 20)` (`return_sequences=False` swallows the time axis).
+This manually reshapes to put back a time axis of length 1, then copies it 47 times to make 48 frames,
+so the Decoder can process it as a sequence.
 
-- 用的是 `tf.concat` 循环拼接，**不是 `tf.tile`** —— 效果一样但慢一些，
-  改成 `tf.tile(x, [1, 48, 1, 1, 1])` 会更快
-- `74` / `99` / `20` 都是写死的，改 resize 或 filters 必须同步改这里
+- It uses a `tf.concat` loop, **not `tf.tile`** — same result but slower;
+  `tf.tile(x, [1, 48, 1, 1, 1])` would be faster
+- `74` / `99` / `20` are all hard-coded; changing resize or filters means changing them here too
 
-训练配置：
+Training config:
 
 ```python
 model.compile(loss="mae", optimizer="adam")
@@ -177,25 +179,25 @@ ModelCheckpoint(filepath='./models/my_model.h5', monitor='val_loss',
 model.fit(..., batch_size=8, epochs=100)
 ```
 
-- 损失用 **MAE** 而不是 MSE，云图这种大面积平滑的区域，MAE 不容易被极端像素带偏
-- `save_weights_only=True` → `my_model.h5` 里**只有权重没有结构**，
-  要推理得先 `get_model()` 再 `load_weights()`
+- Loss is **MAE** rather than MSE — for the large smooth regions in cloud imagery, MAE isn't thrown off by extreme pixels
+- `save_weights_only=True` → `my_model.h5` holds **weights only, no architecture**;
+  to run inference you need `get_model()` first, then `load_weights()`
 
 ---
 
-## 已知问题
+## Known issues
 
-- **`libs/__pycache__/` 被提交进来了**（三个 `.pyc`），下次清理一下
-- **没有 `requirements.txt`**
-- `datasets.py` 里 `resized_data` 在第一次循环时是未定义变量，
-  如果**第一帧就读失败**会直接 `UnboundLocalError`（实际跑的时候没遇到，因为数据齐全）
-- 输入序列是「一天 48 帧 → 预测同样 48 帧」，本质是自回归而非真正的未来预测，
-  当年大概是先跑通形状再说
+- **`libs/__pycache__/` got committed** (three `.pyc` files) — clean it up sometime
+- **No `requirements.txt`**
+- In `datasets.py`, `resized_data` is an undefined variable on the first iteration,
+  so if **the very first frame fails to load** it raises `UnboundLocalError` (never hit in practice, the data was complete)
+- The input sequence is "48 frames a day → predict the same 48 frames", which is autoregressive rather than genuine
+  future prediction — probably the goal back then was just to get the shapes working
 
 ---
 
 <div align="center">
 
-<sub>当年的一点小实验，云图数据是 Himawari-8 的 (´-ω-`)</sub>
+<sub>A little experiment from back then; the cloud imagery is Himawari-8's (´-ω-`)</sub>
 
 </div>
